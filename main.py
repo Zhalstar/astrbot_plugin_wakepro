@@ -7,6 +7,7 @@ from astrbot.core.message.components import At, Plain
 from astrbot.core.platform.astr_message_event import AstrMessageEvent
 from astrbot.core.star.filter.command import CommandFilter
 from astrbot.core.star.filter.command_group import CommandGroupFilter
+from astrbot.core.star.star import StarMetadata
 from astrbot.core.star.star_handler import star_handlers_registry
 
 from .core.config import PluginConfig
@@ -23,7 +24,8 @@ class WakePlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
         self.cfg = PluginConfig(config, context)
-        self.commands = self._get_all_commands()
+        self._commands: dict[str, set[str]] | None = None
+        self._commands_registry_size = 0
         self.pipeline = Pipeline(self.cfg)
 
     async def initialize(self) -> None:
@@ -35,18 +37,42 @@ class WakePlugin(Star):
         await self.pipeline.terminate()
 
     @staticmethod
-    def _get_all_commands() -> list[str]:
-        """遍历所有注册的处理器获取所有命令"""
-        commands = []
+    def _get_all_commands() -> dict[str, set[str]]:
+        """Read command names and aliases from the current handler registry.
+
+        Returns:
+            Complete command names and aliases, indexed by their first token.
+            Group paths are retained for matching; context uses the first token
+            for the existing built-in command blocking rules.
+        """
+        commands: dict[str, set[str]] = {}
         for handler in star_handlers_registry:
             for fl in handler.event_filters:
-                if isinstance(fl, CommandFilter):
-                    commands.append(fl.command_name)
-                    break
-                elif isinstance(fl, CommandGroupFilter):
-                    commands.append(fl.group_name)
+                if isinstance(fl, (CommandFilter, CommandGroupFilter)):
+                    for name in fl.get_complete_command_names():
+                        commands.setdefault(name.split(" ", 1)[0], set()).add(name)
                     break
         return commands
+
+    @filter.on_plugin_loaded()
+    async def on_plugin_loaded(self, metadata: StarMetadata) -> None:
+        """Invalidate the command cache after a plugin loads.
+
+        Args:
+            metadata: Metadata of the loaded plugin.
+        """
+        self._commands = None
+
+    @filter.on_plugin_unloaded()
+    async def on_plugin_unloaded(self, metadata: StarMetadata) -> None:
+        """Invalidate the cache before the plugin's handlers are removed.
+
+        Args:
+            metadata: Metadata of the unloading plugin.
+        """
+        # Registry cleanup can happen after this hook; the size check below
+        # also invalidates any cache rebuilt while unloading is still in progress.
+        self._commands = None
 
     @filter.event_message_type(filter.EventMessageType.ALL, priority=99999)
     async def on_group_msg(self, event: AstrMessageEvent):
@@ -63,8 +89,23 @@ class WakePlugin(Star):
         chain = event.get_messages()
         plains = [seg.text for seg in chain if isinstance(seg, Plain)]
         plain = " ".join(plains).strip()
-        first_arg = event.message_str.split(" ", 1)[0]
-        cmd = first_arg if first_arg in self.commands else None
+        # AstrBot has already removed the wake prefix before dispatching handlers.
+        message_str = " ".join(event.message_str.split())
+        if self._commands is None or self._commands_registry_size != len(
+            star_handlers_registry
+        ):
+            self._commands = self._get_all_commands()
+            self._commands_registry_size = len(star_handlers_registry)
+        first_arg = message_str.split(" ", 1)[0]
+        # Match full paths, but keep the root token for built-in blocking.
+        cmd = (
+            first_arg
+            if any(
+                message_str == name or message_str.startswith(f"{name} ")
+                for name in self._commands.get(first_arg, ())
+            )
+            else None
+        )
 
         group = (
             StateManager.get_group(gid, platform_id=platform_id, bot_id=str(bid))

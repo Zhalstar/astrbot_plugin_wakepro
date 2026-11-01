@@ -253,13 +253,13 @@
             },
             "disable_reply_other_wake": {
                 "description": "引用别人时不唤醒",
-                "hint": "群聊中引用别人且没有引用或艾特 bot 时，直接阻止后续唤醒词、智能唤醒和 JEV 判定",
+                "hint": "群聊中引用别人时，阻止后续唤醒延长、智能唤醒和 JEV 判定；命令消息及前缀、艾特 Bot、引用 Bot、唤醒词等强唤醒不受影响",
                 "type": "bool",
                 "default": false
             },
             "disable_at_other_wake": {
                 "description": "艾特别人时不唤醒",
-                "hint": "群聊中艾特别人且没有引用或艾特 bot 时，直接阻止后续唤醒词、智能唤醒和 JEV 判定",
+                "hint": "群聊中艾特别人时，阻止后续唤醒延长、智能唤醒和 JEV 判定；命令消息及前缀、艾特 Bot、引用 Bot、唤醒词等强唤醒不受影响",
                 "type": "bool",
                 "default": false
             }

@@ -44,23 +44,6 @@ class MentionStep(BaseStep):
                         wake=True, msg="引用唤醒", wake_type=WakeType.REPLY
                     )
 
-        if (
-            not ctx.debounce_follow_up
-            and self.cfg.disable_reply_other_wake
-            and has_other_reply
-            and not has_self_reference
-        ):
-            return StepResult(
-                wake=False, abort=True, msg="引用了别人的消息，已跳过唤醒"
-            )
-        if (
-            not ctx.debounce_follow_up
-            and self.cfg.disable_at_other_wake
-            and has_other_at
-            and not has_self_reference
-        ):
-            return StepResult(wake=False, abort=True, msg="艾特了别人，已跳过唤醒")
-
         if ctx.plain:
             for name in self.cfg.names:
                 if name and name in ctx.plain:
@@ -74,5 +57,31 @@ class MentionStep(BaseStep):
                         return StepResult(
                             wake=True, msg="专属唤醒词唤醒", wake_type=WakeType.KEYWORD
                         )
+
+        # Explicit prefix wakes also bypass these restrictions when CommandStep
+        # was skipped by the pipeline configuration.
+        if (
+            ctx.debounce_follow_up
+            or WakeType.PREFIX in ctx.wake_types
+            or (
+                ctx.event.is_at_or_wake_command
+                and any(
+                    prefix and ctx.plain.startswith(prefix)
+                    for prefix in self.config.wake_prefix
+                )
+            )
+        ):
+            return StepResult()
+
+        if (
+            self.cfg.disable_reply_other_wake
+            and has_other_reply
+            and not has_self_reference
+        ):
+            return StepResult(
+                wake=False, abort=True, msg="引用了别人的消息，已跳过唤醒"
+            )
+        if self.cfg.disable_at_other_wake and has_other_at and not has_self_reference:
+            return StepResult(wake=False, abort=True, msg="艾特了别人，已跳过唤醒")
 
         return StepResult()
