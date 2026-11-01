@@ -3,7 +3,7 @@ import time
 from astrbot.api.event import filter
 from astrbot.api.star import Context, Star
 from astrbot.core.config.astrbot_config import AstrBotConfig
-from astrbot.core.message.components import Plain
+from astrbot.core.message.components import At, Plain
 from astrbot.core.platform.astr_message_event import AstrMessageEvent
 from astrbot.core.star.filter.command import CommandFilter
 from astrbot.core.star.filter.command_group import CommandGroupFilter
@@ -102,3 +102,43 @@ class WakePlugin(Star):
         member = group.members.get(uid)
         if member:
             member.last_reply = time.time()
+
+
+    def _extract_target_id(self, event: AstrMessageEvent, target_id: str | None = None) -> str | None:
+        """从参数或消息中的 At 组件提取目标 ID"""
+        for seg in event.message_obj.message:
+            if isinstance(seg, At) and seg.qq and seg.qq != "all":
+                return str(seg.qq).strip()
+        if target_id:
+            cleaned = target_id.strip()
+            if cleaned.startswith("@"):
+                cleaned = cleaned[1:].strip()
+            if cleaned:
+                return cleaned
+        return None
+
+    @filter.command("屏蔽唤醒")
+    async def cmd_block_wake(self, event: AstrMessageEvent, target_id: str | None = None):
+        """屏蔽指定用户的唤醒"""
+        uid = self._extract_target_id(event, target_id)
+        if not uid:
+            yield event.plain_result("请指定要屏蔽的用户ID或At目标用户，例如：/屏蔽唤醒 123456 或 /屏蔽唤醒 @某人")
+            return
+
+        if self.cfg.add_block_user(uid):
+            yield event.plain_result(f"已将用户 {uid} 加入屏蔽唤醒列表")
+        else:
+            yield event.plain_result(f"用户 {uid} 已在屏蔽唤醒列表中")
+
+    @filter.command("允许唤醒")
+    async def cmd_allow_wake(self, event: AstrMessageEvent, target_id: str | None = None):
+        """从屏蔽唤醒列表中移除指定用户"""
+        uid = self._extract_target_id(event, target_id)
+        if not uid:
+            yield event.plain_result("请指定要允许的用户ID或At目标用户，例如：/允许唤醒 123456 或 /允许唤醒 @某人")
+            return
+
+        if self.cfg.remove_block_user(uid):
+            yield event.plain_result(f"已将用户 {uid} 从屏蔽唤醒列表中移除")
+        else:
+            yield event.plain_result(f"用户 {uid} 不在屏蔽唤醒列表中")

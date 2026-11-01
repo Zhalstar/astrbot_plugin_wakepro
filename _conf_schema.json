@@ -172,6 +172,12 @@
                 "hint": "当用户输入的消息包含这些词时，bot将不会被唤醒",
                 "type": "list",
                 "default": []
+            },
+            "block_users": {
+                "description": "屏蔽唤醒用户",
+                "hint": "在此列表中的用户 ID 发送的消息将直接阻止唤醒",
+                "type": "list",
+                "default": []
             }
         }
     },
