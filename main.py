@@ -194,7 +194,7 @@ class WakePlugin(Star):
         results = []
         for uid in uids:
             if self.cfg.remove_block_user(uid):
-                results.append(f"已将用户 {uid} 从屏蔽唤醒列表中移除")
+                results.append(f"已解除屏蔽：{uid}")
             else:
-                results.append(f"用户 {uid} 不在屏蔽唤醒列表中")
+                results.append(f"用户未被屏蔽：{uid}")
         yield event.plain_result("\n".join(results))
