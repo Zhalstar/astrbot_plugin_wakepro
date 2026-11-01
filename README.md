@@ -8,7 +8,7 @@ _✨ 唤醒增强插件 ✨_
 
 [![License](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0.html)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
-[![AstrBot](https://img.shields.io/badge/AstrBot-4.0%2B-orange.svg)](https://github.com/Soulter/AstrBot)
+[![AstrBot](https://img.shields.io/badge/AstrBot-4.18.2%2B-orange.svg)](https://github.com/Soulter/AstrBot)
 [![GitHub](https://img.shields.io/badge/作者-Zhalslar-blue)](https://github.com/Zhalslar)
 
 </div>
@@ -83,7 +83,7 @@ WakePro 是 AstrBot 的高阶唤醒插件，把「能否唤醒」拆成一套固
 
 前缀、艾特 Bot、引用 Bot、命中通用或管理员专属唤醒词属于强唤醒，不受“引用别人时不唤醒”和“艾特别人时不唤醒”限制；其中引用唤醒仍需未被禁用。没有强唤醒时，这两项配置会拦截后续唤醒延长、智能唤醒和 JEV 判定。
 
-命令消息跳过本步骤，例如 `#禁言 @某人`；强唤醒和命令仍受前置阻塞判断和指令屏蔽规则约束。命令识别实时读取已注册的指令，包含别名和命令组。
+命令消息跳过本步骤，例如 `#禁言 @某人`；强唤醒和命令仍受前置阻塞判断和指令屏蔽规则约束。命令识别缓存已注册的指令，插件加载或卸载后失效并在下一条消息时重建；按完整命令路径及别名匹配，上下文仅保留首级名称用于内置指令屏蔽。
 
 ### 唤醒延长（prolong）
 

@@ -221,7 +221,7 @@ class WakeContext:
     plain: str
     """纯文本消息"""
     cmd: str | None
-    """命令"""
+    """First token of a matched command path, used by command blocking rules."""
     is_admin: bool
     """是否为管理员事件"""
     umo: str
