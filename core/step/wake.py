@@ -2,7 +2,7 @@ import random
 
 from ..config import PluginConfig
 from ..interest import Interest
-from ..model import StepName, StepResult, WakeContext
+from ..model import StepName, StepResult, WakeContext, WakeType
 from ..sentiment import sentiment
 from ..similarity import Similarity
 from .base import BaseStep
@@ -30,39 +30,35 @@ class WakeStep(BaseStep):
         # 跳过指令消息
         if ctx.cmd:
             return StepResult(msg="指令消息，跳过智能唤醒")
-        # 唤醒延长
-        if (
-            self.cfg.prolong > 0
-            and ctx.member
-            and ctx.member.can_prolong
-            and ctx.now - ctx.member.last_reply <= self.cfg.prolong
-        ):
-            return StepResult(wake=True, msg="唤醒延长", prolong=True)
+        if WakeType.PROLONG in ctx.wake_types:
+            return StepResult()
         # 相关性唤醒
         if self.cfg.similar < 1 and ctx.group and ctx.group.bot_msgs and ctx.plain:
             sim = self.similarity.similarity(
                 ctx.gid, ctx.plain, list(ctx.group.bot_msgs)
             )
             if sim > self.cfg.similar:
-                return StepResult(wake=True, msg="相关性唤醒")
+                return StepResult(
+                    wake=True, msg="相关性唤醒", wake_type=WakeType.SIMILAR
+                )
         # 答疑唤醒
         if self.cfg.ask < 1 and ctx.plain and sentiment.ask(ctx.plain) > self.cfg.ask:
-            return StepResult(wake=True, msg="答疑唤醒")
+            return StepResult(wake=True, msg="答疑唤醒", wake_type=WakeType.ASK)
         # 无聊唤醒
         if (
             self.cfg.bored < 1
             and ctx.plain
             and sentiment.bored(ctx.plain) > self.cfg.bored
         ):
-            return StepResult(wake=True, msg="无聊唤醒")
+            return StepResult(wake=True, msg="无聊唤醒", wake_type=WakeType.BORED)
         # 兴趣唤醒
         if (
             self.cfg.interest < 1
             and ctx.plain
             and self.interest.calc_interest(ctx.plain) > self.cfg.interest
         ):
-            return StepResult(wake=True, msg="兴趣唤醒")
+            return StepResult(wake=True, msg="兴趣唤醒", wake_type=WakeType.INTEREST)
         # 概率唤醒
         if self.cfg.prob > 0 and random.random() < self.cfg.prob:
-            return StepResult(wake=True, msg="概率唤醒")
+            return StepResult(wake=True, msg="概率唤醒", wake_type=WakeType.PROB)
         return StepResult()

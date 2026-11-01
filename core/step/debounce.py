@@ -13,7 +13,14 @@ from astrbot.core.message.components import (
 from astrbot.core.pipeline.process_stage import follow_up as process_follow_up
 
 from ..config import PluginConfig
-from ..model import PendingWakeRequest, StateManager, StepName, StepResult, WakeContext
+from ..model import (
+    PendingWakeRequest,
+    StateManager,
+    StepName,
+    StepResult,
+    WakeContext,
+    WakeType,
+)
 from .base import BaseStep
 
 
@@ -45,6 +52,7 @@ class DebounceStep(BaseStep):
 
         self._stop_previous_event(pending.event)
         ctx.debounce_follow_up = True
+        ctx.event.set_extra("wakepro_prolong_reply", pending.prolong_reply)
         self._detach_active_runner(ctx.umo)
         ctx.chain = self._merge_chain(pending.chain, ctx.chain)
         ctx.plain = self._merge_plain(pending.plain, ctx.plain)
@@ -61,13 +69,14 @@ class DebounceStep(BaseStep):
                     plain=ctx.plain,
                     created_at=ctx.now,
                     merged_count=merged_count,
+                    prolong_reply=pending.prolong_reply,
                 ),
                 window=self.cfg.listen_seconds,
             )
             msg = f"已合并同用户 {merged_count} 条连续消息"
         else:
             msg = f"已合并同用户 {merged_count} 条连续消息，达到上限后立即发起请求"
-        return StepResult(wake=True, msg=msg)
+        return StepResult(wake=True, msg=msg, wake_type=WakeType.DEBOUNCE)
 
     async def activate_window(self, ctx: WakeContext) -> None:
         if self.cfg.listen_seconds <= 0 or not ctx.uid:
@@ -76,7 +85,7 @@ class DebounceStep(BaseStep):
             return
         if not ctx.debounce_follow_up:
             message_type = self._detect_message_type(ctx)
-            if message_type not in self.cfg.message_types:
+            if message_type not in self.cfg._message_types:
                 return
         if not self._should_continue_listening(ctx.debounce_merged_count):
             return
@@ -90,6 +99,7 @@ class DebounceStep(BaseStep):
                 plain=ctx.plain,
                 created_at=ctx.now,
                 merged_count=ctx.debounce_merged_count,
+                prolong_reply=ctx.event.get_extra("wakepro_prolong_reply", False),
             ),
             window=self.cfg.listen_seconds,
         )

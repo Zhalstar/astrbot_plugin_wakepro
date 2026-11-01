@@ -12,18 +12,10 @@ from astrbot.core.config.astrbot_config import AstrBotConfig
 from astrbot.core.star.context import Context
 from astrbot.core.utils.astrbot_path import get_astrbot_plugin_path
 
+from .model import WakeType
+
 
 class ConfigNode:
-    """
-    配置节点, 把 dict 变成强类型对象。
-
-    规则：
-    - schema 来自子类类型注解
-    - 声明字段：读写，写回底层 dict
-    - 未声明字段和下划线字段：仅挂载属性，不写回
-    - 支持 ConfigNode 多层嵌套（lazy + cache）
-    """
-
     _SCHEMA_CACHE: dict[type, dict[str, type]] = {}
     _FIELDS_CACHE: dict[type, set[str]] = {}
 
@@ -56,7 +48,7 @@ class ConfigNode:
                 continue
             if self._is_optional(tp):
                 continue
-            logger.warning(f"[config:{self.__class__.__name__}] 缺少字段: {key}")
+            logger.warning(f"[config:{self.__class__.__name__}] miss key: {key}")
 
     def __getattr__(self, key: str) -> Any:
         if key in self._fields():
@@ -69,7 +61,7 @@ class ConfigNode:
                     if not isinstance(value, MutableMapping):
                         raise TypeError(
                             f"[config:{self.__class__.__name__}] "
-                            f"字段 {key} 期望 dict，实际是 {type(value).__name__}"
+                            f"key {key} need dict but {type(value).__name__}"
                         )
                     children[key] = tp(value)
                 return children[key]
@@ -88,18 +80,12 @@ class ConfigNode:
         object.__setattr__(self, key, value)
 
     def raw_data(self) -> Mapping[str, Any]:
-        """
-        底层配置 dict 的只读视图
-        """
         return MappingProxyType(self._data)
 
     def save_config(self) -> None:
-        """
-        保存配置到磁盘（仅允许在根节点调用）
-        """
         if not isinstance(self._data, AstrBotConfig):
             raise RuntimeError(
-                f"{self.__class__.__name__}.save_config() 只能在根配置节点上调用"
+                f"{self.__class__.__name__}.save_config() only supports AstrBotConfig"
             )
         self._data.save_config()
 
@@ -142,15 +128,15 @@ class PipelineConfig(ConfigNode):
 class BlockConfig(ConfigNode):
     wake_cd: float
     block_qqbot: bool
-    block_image: bool
     reread: bool
     keywords: list[str]
     block_users: list[str]
 
     def __init__(self, data: MutableMapping[str, Any]):
         super().__init__(data)
-        if "block_users" not in data or self.block_users is None:
-            self.block_users = []
+        self.block_users = [
+            str(uid).strip() for uid in (self.block_users or []) if str(uid).strip()
+        ]
 
 
 class CommandConfig(ConfigNode):
@@ -168,8 +154,21 @@ class MentionConfig(ConfigNode):
     disable_at_other_wake: bool
 
 
+class ProlongConfig(ConfigNode):
+    activation: list[str]
+    seconds: float
+    max_count: int
+
+    def __init__(self, data: MutableMapping[str, Any]):
+        super().__init__(data)
+        self._activation_types = {
+            WakeType(name.split("(", 1)[0].strip())
+            for name in self.activation
+            if name.strip()
+        }
+
+
 class WakeConfig(ConfigNode):
-    prolong: float
     similar: float
     ask: float
     bored: float
@@ -180,6 +179,16 @@ class WakeConfig(ConfigNode):
     def __init__(self, data: MutableMapping[str, Any]):
         super().__init__(data)
         self._interest_words = [w.split() for w in self.interest_words_str]
+
+
+class JevConfig(ConfigNode):
+    jev_api_key: str
+    jev_api_url: str
+    jev_model: str
+    jev_threshold: float
+    jev_timeout_seconds: float
+    jev_retries: int
+    history_messages: int
 
 
 class SilenceConfig(ConfigNode):
@@ -194,14 +203,21 @@ class DebounceConfig(ConfigNode):
     max_merge_count: int
     message_types: list[str]
 
+    def __init__(self, data: MutableMapping[str, Any]):
+        super().__init__(data)
+        self._message_types = {
+            name.split("(", 1)[0].strip() for name in self.message_types if name.strip()
+        }
+
 
 class PluginConfig(ConfigNode):
-    global_blacklist: list[str]
     pipeline: PipelineConfig
     command: CommandConfig
     block: BlockConfig
     mention: MentionConfig
+    prolong: ProlongConfig
     wake: WakeConfig
+    jev: JevConfig
     debounce: DebounceConfig
     silence: SilenceConfig
 
@@ -236,24 +252,17 @@ class PluginConfig(ConfigNode):
                 self.save_config()
 
     def add_block_user(self, user_id: str | int) -> bool:
-        uid_str = str(user_id).strip()
-        if not uid_str:
+        uid = str(user_id).strip()
+        if not uid or uid in self.block.block_users:
             return False
-        if self.block.block_users is None:
-            self.block.block_users = []
-        if uid_str not in self.block.block_users:
-            self.block.block_users.append(uid_str)
-            self.save_config()
-            return True
-        return False
+        self.block.block_users.append(uid)
+        self.save_config()
+        return True
 
     def remove_block_user(self, user_id: str | int) -> bool:
-        uid_str = str(user_id).strip()
-        if not uid_str or not self.block.block_users:
+        uid = str(user_id).strip()
+        if not uid or uid not in self.block.block_users:
             return False
-        if uid_str in self.block.block_users:
-            self.block.block_users.remove(uid_str)
-            self.save_config()
-            return True
-        return False
-
+        self.block.block_users.remove(uid)
+        self.save_config()
+        return True

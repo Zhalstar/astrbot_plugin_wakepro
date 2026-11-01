@@ -25,6 +25,14 @@ class WakePlugin(Star):
         self.commands = self._get_all_commands()
         self.pipeline = Pipeline(self.cfg)
 
+    async def initialize(self) -> None:
+        """Initialize the wake pipeline and its optional Jev client."""
+        await self.pipeline.initialize()
+
+    async def terminate(self) -> None:
+        """Release resources held by the wake pipeline."""
+        await self.pipeline.terminate()
+
     @staticmethod
     def _get_all_commands() -> list[str]:
         """遍历所有注册的处理器获取所有命令"""
@@ -46,12 +54,9 @@ class WakePlugin(Star):
         gid = event.get_group_id()
         uid = event.get_sender_id()
         bid = event.get_self_id()
+        platform_id = str(event.get_platform_id() or "")
 
         if uid == bid:
-            return
-
-        if any(x in self.cfg.global_blacklist for x in (umo, uid, gid)):
-            event.stop_event()
             return
 
         chain = event.get_messages()
@@ -60,9 +65,26 @@ class WakePlugin(Star):
         first_arg = event.message_str.split(" ", 1)[0]
         cmd = first_arg if first_arg in self.commands else None
 
-        group = StateManager.get_group(gid) if gid else None
+        group = (
+            StateManager.get_group(gid, platform_id=platform_id, bot_id=str(bid))
+            if gid
+            else None
+        )
         if group and uid not in group.members:
             group.members[uid] = MemberState(uid=uid)
+        if group and not cmd:
+            message_id = str(getattr(event.message_obj, "message_id", "") or "")
+            group.history.append(
+                {
+                    "message_id": message_id or f"{uid}:{time.time_ns()}",
+                    "sender_id": str(uid),
+                    "sender_name": event.get_sender_name() or "",
+                    "text": plain,
+                    "time": time.time(),
+                    "is_bot": False,
+                    "bot_id": str(bid),
+                }
+            )
 
         ctx = WakeContext(
             event=event,
@@ -96,48 +118,87 @@ class WakePlugin(Star):
         if not gid or not uid or not result:
             return
 
-        group = StateManager.get_group(gid)
+        group = StateManager.get_group(
+            gid,
+            platform_id=str(event.get_platform_id() or ""),
+            bot_id=str(event.get_self_id()),
+        )
         group.bot_msgs.append(result.get_plain_text())
+        group.history.append(
+            {
+                "message_id": f"bot:{event.get_self_id()}:{time.time_ns()}",
+                "sender_id": str(event.get_self_id()),
+                "sender_name": "",
+                "text": result.get_plain_text(),
+                "time": time.time(),
+                "is_bot": True,
+                "bot_id": str(event.get_self_id()),
+            }
+        )
 
         member = group.members.get(uid)
-        if member:
+        if (
+            member
+            and member.can_prolong
+            and event.get_extra("wakepro_prolong_reply", False)
+        ):
             member.last_reply = time.time()
 
-
-    def _extract_target_id(self, event: AstrMessageEvent, target_id: str | None = None) -> str | None:
-        """从参数或消息中的 At 组件提取目标 ID"""
-        for seg in event.message_obj.message:
-            if isinstance(seg, At) and seg.qq and seg.qq != "all":
-                return str(seg.qq).strip()
-        if target_id:
-            cleaned = target_id.strip()
-            if cleaned.startswith("@"):
-                cleaned = cleaned[1:].strip()
-            if cleaned:
-                return cleaned
-        return None
-
     @filter.command("屏蔽唤醒")
-    async def cmd_block_wake(self, event: AstrMessageEvent, target_id: str | None = None):
-        """屏蔽指定用户的唤醒"""
-        uid = self._extract_target_id(event, target_id)
-        if not uid:
-            yield event.plain_result("请指定要屏蔽的用户ID或At目标用户，例如：/屏蔽唤醒 123456 或 /屏蔽唤醒 @某人")
-            return
+    async def cmd_block_wake(self, event: AstrMessageEvent, target_id: str = ""):
+        """Block wake requests from the specified user.
 
+        Args:
+            event: Incoming command event.
+            target_id: User ID, optionally prefixed with @; a mention takes priority.
+
+        Yields:
+            A message describing the configuration change or usage.
+        """
+        uid = target_id.strip().removeprefix("@").strip()
+        for seg in event.get_messages():
+            if (
+                isinstance(seg, At)
+                and seg.qq
+                and str(seg.qq) not in ("all", str(event.get_self_id()))
+            ):
+                uid = str(seg.qq).strip()
+                break
+        if not uid:
+            yield event.plain_result(
+                "请指定要屏蔽的用户ID或At目标用户，例如：/屏蔽唤醒 123456 或 /屏蔽唤醒 @某人"
+            )
+            return
         if self.cfg.add_block_user(uid):
             yield event.plain_result(f"已将用户 {uid} 加入屏蔽唤醒列表")
         else:
             yield event.plain_result(f"用户 {uid} 已在屏蔽唤醒列表中")
 
     @filter.command("允许唤醒")
-    async def cmd_allow_wake(self, event: AstrMessageEvent, target_id: str | None = None):
-        """从屏蔽唤醒列表中移除指定用户"""
-        uid = self._extract_target_id(event, target_id)
-        if not uid:
-            yield event.plain_result("请指定要允许的用户ID或At目标用户，例如：/允许唤醒 123456 或 /允许唤醒 @某人")
-            return
+    async def cmd_allow_wake(self, event: AstrMessageEvent, target_id: str = ""):
+        """Restore wake requests from the specified user.
 
+        Args:
+            event: Incoming command event.
+            target_id: User ID, optionally prefixed with @; a mention takes priority.
+
+        Yields:
+            A message describing the configuration change or usage.
+        """
+        uid = target_id.strip().removeprefix("@").strip()
+        for seg in event.get_messages():
+            if (
+                isinstance(seg, At)
+                and seg.qq
+                and str(seg.qq) not in ("all", str(event.get_self_id()))
+            ):
+                uid = str(seg.qq).strip()
+                break
+        if not uid:
+            yield event.plain_result(
+                "请指定要允许的用户ID或At目标用户，例如：/允许唤醒 123456 或 /允许唤醒 @某人"
+            )
+            return
         if self.cfg.remove_block_user(uid):
             yield event.plain_result(f"已将用户 {uid} 从屏蔽唤醒列表中移除")
         else:

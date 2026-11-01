@@ -18,23 +18,16 @@ class BaseStep(ABC):
 
     @abstractmethod
     async def handle(self, ctx: WakeContext) -> StepResult:
-        """
-        处理单次步骤的核心逻辑。
-        参数
-        ----
-        ctx : WakeContext
-            上游传递的上下文对象，只读，不应在此方法内直接替换。
-        返回
-        ----
-        StepResult
-            用于指示当前步骤的处理结果和后续调度行为的枚举/数据结构。
-            典型约定包括：
-            - wake: True 表示唤醒, False 表示阻塞, None 表示跳过；
-            - abort: 中止当前流水线，不再调度后续步骤；
-            - prolong: 需要延长/挂起本步骤（例如等待外部事件或定时任务），
-              调度器应在约定的时间或条件满足后再次唤醒当前步骤。
-            如需向下游传递数据，请通过 ctx 的字段或在 StepResult 中约定的字段返回，
-            并在具体子类或实现类的文档中说明返回值与数据约定。
+        """Process one message and return a pipeline decision.
+
+        Args:
+            ctx: Shared message context and conversation state.
+
+        Returns:
+            A result whose wake flag wakes, blocks, or leaves the message
+            unchanged. The abort flag ends the pipeline. A prolong wake consumes
+            one extension allowance; wake_type identifies the wake source used
+            to determine whether it may start or reset the extension window.
         """
         ...  # 子类必须覆盖此处
 
