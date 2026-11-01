@@ -186,6 +186,24 @@ class WakePlugin(Star):
         ):
             member.last_reply = time.time()
 
+    @filter.llm_tool()
+    async def llm_set_wake_block(
+        self, event: AstrMessageEvent, user_id: str, blocked: bool
+    ) -> str:
+        """屏蔽或解除屏蔽指定用户，屏蔽时用户的消息将被屏蔽，不会被回复。
+        Args:
+            user_id(string): 要操作的用户 ID，例如 QQ 号。
+            blocked(boolean): true 表示屏蔽该用户（默认为true），false 表示解除屏蔽。
+        """
+        uid = user_id.strip().removeprefix("@").strip()
+        if blocked:
+            if self.cfg.add_block_user(uid):
+                return f"已屏蔽用户：{uid}"
+            return f"用户屏蔽中：{uid}"
+        if self.cfg.remove_block_user(uid):
+            return f"已解除屏蔽：{uid}"
+        return f"用户未被屏蔽：{uid}"
+
     @filter.command("屏蔽用户", alias={"屏蔽唤醒"})
     async def cmd_block_wake(self, event: AstrMessageEvent, target_id: str = ""):
         """屏蔽用户 @用户A @用户B 或QQ号"""
