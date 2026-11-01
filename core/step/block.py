@@ -57,6 +57,10 @@ class BlockStep(BaseStep):
                 abort=True,
                 msg=f"唤醒冷却中({self.cfg.wake_cd}秒)，已阻止唤醒",
             )
+        # 屏蔽唤醒用户
+        if getattr(self.cfg, "block_users", None) and str(ctx.uid) in [str(u) for u in self.cfg.block_users]:
+            return StepResult(wake=False, abort=True, msg=f"用户({ctx.uid})在屏蔽唤醒列表中")
+
         # 过滤QQ机器人
         if (
             self.cfg.block_qqbot

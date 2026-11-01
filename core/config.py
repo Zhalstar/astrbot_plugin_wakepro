@@ -145,6 +145,12 @@ class BlockConfig(ConfigNode):
     block_image: bool
     reread: bool
     keywords: list[str]
+    block_users: list[str]
+
+    def __init__(self, data: MutableMapping[str, Any]):
+        super().__init__(data)
+        if "block_users" not in data or self.block_users is None:
+            self.block_users = []
 
 
 class CommandConfig(ConfigNode):
@@ -228,3 +234,26 @@ class PluginConfig(ConfigNode):
                 with open(self.block_words_file, encoding="utf-8") as f:
                     self.block.keywords = json.load(f)
                 self.save_config()
+
+    def add_block_user(self, user_id: str | int) -> bool:
+        uid_str = str(user_id).strip()
+        if not uid_str:
+            return False
+        if self.block.block_users is None:
+            self.block.block_users = []
+        if uid_str not in self.block.block_users:
+            self.block.block_users.append(uid_str)
+            self.save_config()
+            return True
+        return False
+
+    def remove_block_user(self, user_id: str | int) -> bool:
+        uid_str = str(user_id).strip()
+        if not uid_str or not self.block.block_users:
+            return False
+        if uid_str in self.block.block_users:
+            self.block.block_users.remove(uid_str)
+            self.save_config()
+            return True
+        return False
+
