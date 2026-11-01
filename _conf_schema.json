@@ -1,0 +1,396 @@
+{
+    "global_blacklist": {
+        "description": "全局黑名单会话",
+        "hint": "全局黑名单会话将直接停止事件传播, 全局屏蔽",
+        "type": "list",
+        "default": []
+    },
+    "pipeline": {
+        "description": "管道配置",
+        "hint": "配置固定顺序的步骤启用状态，以及白名单/黑名单在哪些步骤生效",
+        "type": "object",
+        "items": {
+            "steps": {
+                "description": "启用的步骤",
+                "hint": "勾选表示启用该步骤，执行顺序已强制固定为：消息防抖 -> 阻塞判断 -> 提及唤醒 -> 智能唤醒 -> 指令屏蔽 -> 沉默检测",
+                "type": "list",
+                "options": [
+                    "debounce(消息防抖)",
+                    "block(阻塞判断)",
+                    "mention(提及唤醒)",
+                    "wake(智能唤醒)",
+                    "command(指令屏蔽)",
+                    "silence(沉默检测)"
+                ],
+                "default": [
+                    "debounce(消息防抖)",
+                    "block(阻塞判断)",
+                    "mention(提及唤醒)",
+                    "wake(智能唤醒)",
+                    "command(指令屏蔽)",
+                    "silence(沉默检测)"
+                ]
+            },
+            "whitelist": {
+                "description": "白名单",
+                "hint": "支持直接填写会话ID、群聊ID、用户ID(如果冲突，请填写完整会话ID)。AstrBot 管理员会自动加入这里",
+                "type": "list",
+                "default": []
+            },
+            "whitelist_steps": {
+                "description": "白名单作用的步骤",
+                "hint": "命中白名单后，这些步骤会跳过处理",
+                "type": "list",
+                "options": [
+                    "debounce(消息防抖)",
+                    "block(阻塞判断)",
+                    "mention(提及唤醒)",
+                    "wake(智能唤醒)",
+                    "command(指令屏蔽)",
+                    "silence(沉默检测)"
+                ],
+                "default": [
+                    "block(阻塞判断)",
+                    "command(指令屏蔽)",
+                    "silence(沉默检测)"
+                ]
+            },
+            "blacklist": {
+                "description": "黑名单",
+                "hint": "支持直接填写会话ID、群聊ID、用户ID(如果冲突，请填写完整会话ID)",
+                "type": "list",
+                "default": []
+            },
+            "blacklist_steps": {
+                "description": "黑名单作用的步骤",
+                "hint": "命中黑名单后，这些步骤会跳过处理",
+                "type": "list",
+                "options": [
+                    "debounce(消息防抖)",
+                    "block(阻塞判断)",
+                    "mention(提及唤醒)",
+                    "wake(智能唤醒)",
+                    "command(指令屏蔽)",
+                    "silence(沉默检测)"
+                ],
+                "default": [
+                    "wake(智能唤醒)"
+                ]
+            }
+        }
+    },
+    "command": {
+        "description": "【指令屏蔽】",
+        "hint": "是否对白名单/黑名单生效由 pipeline 模块控制",
+        "type": "object",
+        "items": {
+            "builtin_cmds": {
+                "description": "内置指令",
+                "hint": "定义哪些指令属于内置指令",
+                "type": "list",
+                "default": [
+                    "llm",
+                    "t2i",
+                    "tts",
+                    "sid",
+                    "op",
+                    "wl",
+                    "dashboard_update",
+                    "alter_cmd",
+                    "provider",
+                    "model",
+                    "plugin",
+                    "plugin ls",
+                    "new",
+                    "switch",
+                    "rename",
+                    "del",
+                    "reset",
+                    "history",
+                    "persona",
+                    "tool ls",
+                    "key",
+                    "websearch"
+                ]
+            },
+            "block_builtin": {
+                "description": "禁止使用内置指令",
+                "hint": "开启后，内置指令将无法唤醒bot,",
+                "type": "bool",
+                "default": false
+            },
+            "block_prefix_cmd": {
+                "description": "禁止使用前缀触发指令",
+                "hint": "开启后，即使用户使用前缀，也无法触发指令，但llm不受影响",
+                "type": "bool",
+                "default": false
+            },
+            "block_prefix_llm": {
+                "description": "禁止使用前缀唤醒LLM",
+                "hint": "开启后，即使用户使用前缀，也无法唤醒llm，但指令不受影响",
+                "type": "bool",
+                "default": false
+            }
+        }
+    },
+    "block": {
+        "description": "【阻塞判断】",
+        "hint": "",
+        "type": "object",
+        "items": {
+            "wake_cd": {
+                "description": "唤醒冷却",
+                "hint": "bot回复的CD(冷却时间)，每个成员单独计CD，bot处于cd时不进行回复。 设为 0 表示关闭cd",
+                "type": "float",
+                "slider": {
+                    "min": 0,
+                    "max": 10,
+                    "step": 0.1
+                },
+                "default": 0.5
+            },
+            "block_qqbot": {
+                "description": "屏蔽QQ机器人",
+                "hint": "当 消息发送者ID 落在 QQ机器人ID范围 时, 屏蔽该用户消息。(仅QQ平台生效)",
+                "type": "bool",
+                "default": true
+            },
+            "block_image": {
+                "description": "屏蔽带图片的消息",
+                "hint": "开启后，只要消息中包含图片，就直接无视并阻止唤醒",
+                "type": "bool",
+                "default": false
+            },
+            "reread": {
+                "description": "屏蔽复读",
+                "hint": "屏蔽其他人对Bot消息的复读， 从而避免Bot被重复的话唤醒",
+                "type": "bool",
+                "default": true
+            },
+            "keywords": {
+                "description": "屏蔽词",
+                "hint": "当用户输入的消息包含这些词时，bot将不会被唤醒",
+                "type": "list",
+                "default": []
+            }
+        }
+    },
+    "mention": {
+        "description": "【提及唤醒】",
+        "hint": "处理艾特、引用、通用唤醒词和专属唤醒词。专属唤醒词仅对 AstrBot 管理员生效",
+        "type": "object",
+        "items": {
+            "names": {
+                "description": "通用唤醒词",
+                "hint": "当消息包含这些词时唤醒 bot，适用于所有用户",
+                "type": "list",
+                "default": []
+            },
+            "admin_names": {
+                "description": "专属唤醒词",
+                "hint": "当 AstrBot 管理员发送的消息包含这些词时唤醒 bot，非管理员无效",
+                "type": "list",
+                "default": [
+                    "宝贝",
+                    "宝宝"
+                ]
+            },
+            "disable_reply_wake": {
+                "description": "禁用引用唤醒",
+                "hint": "开启后，引用 bot 消息不会触发唤醒",
+                "type": "bool",
+                "default": false
+            },
+            "disable_reply_other_wake": {
+                "description": "引用别人时不唤醒",
+                "hint": "当消息中引用了别人的消息,且没有引用、艾特或提及 bot， bot将不会被唤醒",
+                "type": "bool",
+                "default": true
+            },
+            "disable_at_other_wake": {
+                "description": "艾特别人时不唤醒",
+                "hint": "当消息中艾特了别人,且没有引用、艾特或提及 bot， bot将不会被唤醒",
+                "type": "bool",
+                "default": true
+            }
+        }
+    },
+    "wake": {
+        "description": "【智能唤醒】",
+        "hint": "注意: 此步骤仅对触发LLM的消息生效",
+        "type": "object",
+        "items": {
+            "prolong": {
+                "description": "唤醒延长（秒）",
+                "hint": "bot被唤醒后的多长时间内，持续保持唤醒状态(每个用户单独计时)。 设为 0 时关闭检测",
+                "type": "float",
+                "slider": {
+                    "min": 0,
+                    "max": 20,
+                    "step": 1
+                },
+                "default": 8.0
+            },
+            "similar": {
+                "description": "相关性唤醒阈值",
+                "hint": "当前消息与上文bot的消息相关性大时，唤醒bot。 降低阈值可更容易唤醒，保持对话连续性。 设为 1 时关闭检测",
+                "type": "float",
+                "slider": {
+                    "min": 0,
+                    "max": 1,
+                    "step": 0.01
+                },
+                "default": 0.49
+            },
+            "ask": {
+                "description": "答疑唤醒阈值",
+                "hint": "当群里有人问专业性问题时，唤醒bot。建议阈值高一点，日常聊天疑问句出现的频率非常高。 设为 1 时关闭检测",
+                "type": "float",
+                "slider": {
+                    "min": 0,
+                    "max": 1,
+                    "step": 0.01
+                },
+                "default": 0.88
+            },
+            "bored": {
+                "description": "无聊唤醒阈值",
+                "hint": "当群里有人感到无聊或长时间无人发言时，唤醒bot。无聊检测设小点可更敏感，活跃群聊氛围。 设为 1 时关闭检测",
+                "type": "float",
+                "slider": {
+                    "min": 0,
+                    "max": 1,
+                    "step": 0.01
+                },
+                "default": 0.6
+            },
+            "interest_words_str": {
+                "description": "感兴趣的话题",
+                "hint": "设置一些关键词，当群里有人说了些与兴趣词相关的内容时，唤醒bot。 注意格式：可自定义多个感兴趣的话题，每组词作为一个话题，多个词用空格隔开；另外，每组词尽量多写几个从而提高检测的准确度",
+                "type": "list",
+                "default": [
+                    "变量 函数 循环 调试 注释 算法",
+                    "浪漫 约会 陪伴 爱意 亲密 关怀"
+                ]
+            },
+            "interest": {
+                "description": "兴趣唤醒阈值",
+                "hint": "根据自定义的兴趣词来决定是否唤醒，设得越大越难唤醒。 设为 1 时关闭检测",
+                "type": "float",
+                "slider": {
+                    "min": 0,
+                    "max": 1,
+                    "step": 0.01
+                },
+                "default": 0.53
+            },
+            "prob": {
+                "description": "兜底唤醒概率",
+                "hint": "上述所有唤醒机制都没能唤醒bot时，最后会按照此概率尝试唤醒bot(相当于Astrbot框架中的主动唤醒概率)，概率越大越容易唤醒，建议设置得非常小。 设为 0 时关闭检测",
+                "type": "float",
+                "slider": {
+                    "min": 0,
+                    "max": 1,
+                    "step": 0.0001
+                },
+                "default": 0.0005
+            }
+        }
+    },
+    "debounce": {
+        "description": "【消息防抖】",
+        "hint": "消息防抖分为两段：智能唤醒成功后开启监听窗口；后续消息再次进入流水线时，会在这里优先尝试合并到上一条尚未输出的请求中。",
+        "type": "object",
+        "items": {
+            "listen_seconds": {
+                "description": "后续监听时长（秒）",
+                "hint": "智能唤醒成功后，会为该用户开启这么长时间的监听窗口。窗口内命中防抖类型的连续消息会被合并后再请求 LLM。设为 0 时关闭此功能。",
+                "type": "float",
+                "slider": {
+                    "min": 0,
+                    "max": 10,
+                    "step": 0.1
+                },
+                "default": 3.0
+            },
+            "max_merge_count": {
+                "description": "最多合并消息数",
+                "hint": "同一轮防抖最多合并几条消息。设为 0 表示不限制；达到上限后，这一轮会立即发起请求，不再继续监听后续消息。",
+                "type": "int",
+                "slider": {
+                    "min": 0,
+                    "max": 10,
+                    "step": 1
+                },
+                "default": 3
+            },
+            "message_types": {
+                "description": "参与防抖的消息类型",
+                "hint": "勾选的消息类型会在智能唤醒成功后参与防抖监听。normal: 普通消息, at: at消息, reply: 引用消息, command: 命令消息",
+                "type": "list",
+                "options": [
+                    "normal",
+                    "at",
+                    "reply",
+                    "command"
+                ],
+                "default": [
+                    "normal",
+                    "at",
+                    "reply"
+                ]
+            }
+        }
+    },
+    "silence": {
+        "description": "【沉默检测】",
+        "hint": "是否对白名单/黑名单生效由 pipeline 模块控制",
+        "type": "object",
+        "items": {
+            "shutup": {
+                "description": "闭嘴检测阈值",
+                "hint": "有人感觉bot太多话时，bot自动沉默一段时间。 低阈值更容易让bot闭嘴。 设为 1 时关闭检测",
+                "type": "float",
+                "slider": {
+                    "min": 0,
+                    "max": 1,
+                    "step": 0.01
+                },
+                "default": 0.69
+            },
+            "insult": {
+                "description": "辱骂检测阈值",
+                "hint": "有人辱骂bot时，bot自动沉默一段时间。 低阈值更容易让bot沉默，玻璃心更重。 设为 1 时关闭检测",
+                "type": "float",
+                "slider": {
+                    "min": 0,
+                    "max": 1,
+                    "step": 0.01
+                },
+                "default": 0.69
+            },
+            "ai": {
+                "description": "人机检测阈值",
+                "hint": "检测是否是人机的发言， 如果是则bot对该人机沉默一段时间。 阈值设小点会更容易判定为人机，设为 1 时关闭检测",
+                "type": "float",
+                "slider": {
+                    "min": 0,
+                    "max": 1,
+                    "step": 0.01
+                },
+                "default": 0.69
+            },
+            "multiple": {
+                "description": "沉默时间倍数",
+                "hint": "触发bot沉默时的阈值（0~1） * 沉默时间倍数 = 沉默时间",
+                "type": "float",
+                "slider": {
+                    "min": 100,
+                    "max": 1000,
+                    "step": 10
+                },
+                "default": 500
+            }
+        }
+    }
+}
