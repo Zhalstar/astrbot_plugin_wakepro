@@ -1,6 +1,5 @@
 import re
 
-from astrbot.core.message.components import Image
 from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import (
     AiocqhttpMessageEvent,
 )
@@ -57,10 +56,13 @@ class BlockStep(BaseStep):
                 abort=True,
                 msg=f"唤醒冷却中({self.cfg.wake_cd}秒)，已阻止唤醒",
             )
-        # 屏蔽唤醒用户
-        if getattr(self.cfg, "block_users", None) and str(ctx.uid) in [str(u) for u in self.cfg.block_users]:
-            return StepResult(wake=False, abort=True, msg=f"用户({ctx.uid})在屏蔽唤醒列表中")
-
+        # Block users before evaluating wake rules.
+        if str(ctx.uid) in self.cfg.block_users:
+            return StepResult(
+                wake=False,
+                abort=True,
+                msg=f"User {ctx.uid} is blocked from waking the bot",
+            )
         # 过滤QQ机器人
         if (
             self.cfg.block_qqbot
@@ -68,12 +70,6 @@ class BlockStep(BaseStep):
             and self._is_qqbot(ctx.uid)
         ):
             return StepResult(wake=False, abort=True, msg="过滤QQ机器人")
-
-        # 屏蔽带图片消息
-        if getattr(self.cfg, "block_image", False) and any(
-            isinstance(seg, Image) for seg in ctx.chain
-        ):
-            return StepResult(wake=False, abort=True, msg="消息包含图片，已阻止唤醒")
         # 复读阻塞
         if self.cfg.reread and ctx.plain and ctx.group:
             cleaned = re.sub(r"[^\w\u4e00-\u9fff]", "", ctx.plain).lower()

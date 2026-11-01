@@ -1,10 +1,4 @@
 {
-    "global_blacklist": {
-        "description": "全局黑名单会话",
-        "hint": "全局黑名单会话将直接停止事件传播, 全局屏蔽",
-        "type": "list",
-        "default": []
-    },
     "pipeline": {
         "description": "管道配置",
         "hint": "配置固定顺序的步骤启用状态，以及白名单/黑名单在哪些步骤生效",
@@ -12,22 +6,26 @@
         "items": {
             "steps": {
                 "description": "启用的步骤",
-                "hint": "勾选表示启用该步骤，执行顺序已强制固定为：消息防抖 -> 阻塞判断 -> 提及唤醒 -> 智能唤醒 -> 指令屏蔽 -> 沉默检测",
+                "hint": "勾选表示启用该步骤，执行顺序已强制固定为：阻塞判断 -> 指令屏蔽 -> 消息防抖 -> 提及唤醒 -> 唤醒延长 -> 智能唤醒 -> JEV唤醒 -> 沉默检测",
                 "type": "list",
                 "options": [
-                    "debounce(消息防抖)",
                     "block(阻塞判断)",
-                    "mention(提及唤醒)",
-                    "wake(智能唤醒)",
                     "command(指令屏蔽)",
+                    "debounce(消息防抖)",
+                    "mention(提及唤醒)",
+                    "prolong(唤醒延长)",
+                    "wake(智能唤醒)",
+                    "jev(JEV唤醒)",
                     "silence(沉默检测)"
                 ],
                 "default": [
-                    "debounce(消息防抖)",
                     "block(阻塞判断)",
-                    "mention(提及唤醒)",
-                    "wake(智能唤醒)",
                     "command(指令屏蔽)",
+                    "debounce(消息防抖)",
+                    "mention(提及唤醒)",
+                    "prolong(唤醒延长)",
+                    "wake(智能唤醒)",
+                    "jev(JEV唤醒)",
                     "silence(沉默检测)"
                 ]
             },
@@ -42,11 +40,13 @@
                 "hint": "命中白名单后，这些步骤会跳过处理",
                 "type": "list",
                 "options": [
-                    "debounce(消息防抖)",
                     "block(阻塞判断)",
-                    "mention(提及唤醒)",
-                    "wake(智能唤醒)",
                     "command(指令屏蔽)",
+                    "debounce(消息防抖)",
+                    "mention(提及唤醒)",
+                    "prolong(唤醒延长)",
+                    "wake(智能唤醒)",
+                    "jev(JEV唤醒)",
                     "silence(沉默检测)"
                 ],
                 "default": [
@@ -66,22 +66,69 @@
                 "hint": "命中黑名单后，这些步骤会跳过处理",
                 "type": "list",
                 "options": [
-                    "debounce(消息防抖)",
                     "block(阻塞判断)",
-                    "mention(提及唤醒)",
-                    "wake(智能唤醒)",
                     "command(指令屏蔽)",
+                    "debounce(消息防抖)",
+                    "mention(提及唤醒)",
+                    "prolong(唤醒延长)",
+                    "wake(智能唤醒)",
+                    "jev(JEV唤醒)",
                     "silence(沉默检测)"
                 ],
                 "default": [
-                    "wake(智能唤醒)"
+                    "mention(提及唤醒)",
+                    "prolong(唤醒延长)",
+                    "wake(智能唤醒)",
+                    "jev(JEV唤醒)"
                 ]
+            }
+        }
+    },
+    "block": {
+        "description": "【阻塞判断】",
+        "hint": "第一步，依次检查唤醒冷却、屏蔽用户、QQ机器人、复读和屏蔽词；命中后立即停止",
+        "type": "object",
+        "items": {
+            "wake_cd": {
+                "description": "唤醒冷却",
+                "hint": "bot回复的CD(冷却时间)，每个成员单独计CD，bot处于cd时不进行回复。 设为 0 表示关闭cd",
+                "type": "float",
+                "slider": {
+                    "min": 0,
+                    "max": 10,
+                    "step": 0.1
+                },
+                "default": 0.5
+            },
+            "block_users": {
+                "description": "屏蔽用户",
+                "hint": "在此列表中的用户 ID 将被阻塞判断步骤拦截；可通过屏蔽唤醒、允许唤醒命令修改。",
+                "type": "list",
+                "default": []
+            },
+            "block_qqbot": {
+                "description": "屏蔽QQ机器人",
+                "hint": "当 消息发送者ID 落在 QQ机器人ID范围 时, 屏蔽该用户消息。(仅QQ平台生效)",
+                "type": "bool",
+                "default": true
+            },
+            "reread": {
+                "description": "屏蔽复读",
+                "hint": "屏蔽其他人对Bot消息的复读， 从而避免Bot被重复的话唤醒",
+                "type": "bool",
+                "default": true
+            },
+            "keywords": {
+                "description": "屏蔽词",
+                "hint": "当用户输入的消息包含这些词时，bot将不会被唤醒",
+                "type": "list",
+                "default": []
             }
         }
     },
     "command": {
         "description": "【指令屏蔽】",
-        "hint": "是否对白名单/黑名单生效由 pipeline 模块控制",
+        "hint": "第二步，命中屏蔽规则后立即停止；允许的前缀指令及前缀 LLM 消息在冷却检查通过后才标记唤醒，避免自身冷却误拦截",
         "type": "object",
         "items": {
             "builtin_cmds": {
@@ -133,57 +180,54 @@
             }
         }
     },
-    "block": {
-        "description": "【阻塞判断】",
-        "hint": "",
+    "debounce": {
+        "description": "【消息防抖】",
+        "hint": "第三步，尝试合并已有窗口内的连续消息，再进入提及唤醒；窗口内的后续消息也需通过唤醒冷却检查。各唤醒阶段标记唤醒时，满足防抖条件即可开启监听窗口。",
         "type": "object",
         "items": {
-            "wake_cd": {
-                "description": "唤醒冷却",
-                "hint": "bot回复的CD(冷却时间)，每个成员单独计CD，bot处于cd时不进行回复。 设为 0 表示关闭cd",
+            "listen_seconds": {
+                "description": "后续监听时长（秒）",
+                "hint": "提及、智能、JEV 或指令阶段标记唤醒且符合防抖条件时，为该用户开启这么长时间的监听窗口，供后续连续消息合并。设为 0 时关闭此功能。",
                 "type": "float",
                 "slider": {
                     "min": 0,
                     "max": 10,
                     "step": 0.1
                 },
-                "default": 0.5
+                "default": 3
             },
-            "block_qqbot": {
-                "description": "屏蔽QQ机器人",
-                "hint": "当 消息发送者ID 落在 QQ机器人ID范围 时, 屏蔽该用户消息。(仅QQ平台生效)",
-                "type": "bool",
-                "default": true
+            "max_merge_count": {
+                "description": "最多合并消息数",
+                "hint": "同一轮防抖最多合并几条消息。设为 0 表示不限制；达到上限后，这一轮会立即发起请求，不再继续监听后续消息。",
+                "type": "int",
+                "slider": {
+                    "min": 0,
+                    "max": 10,
+                    "step": 1
+                },
+                "default": 3
             },
-            "block_image": {
-                "description": "屏蔽带图片的消息",
-                "hint": "开启后，只要消息中包含图片，就直接无视并阻止唤醒",
-                "type": "bool",
-                "default": false
-            },
-            "reread": {
-                "description": "屏蔽复读",
-                "hint": "屏蔽其他人对Bot消息的复读， 从而避免Bot被重复的话唤醒",
-                "type": "bool",
-                "default": true
-            },
-            "keywords": {
-                "description": "屏蔽词",
-                "hint": "当用户输入的消息包含这些词时，bot将不会被唤醒",
+            "message_types": {
+                "description": "参与防抖的消息类型",
+                "hint": "可多选，默认选择普通消息、艾特 Bot 消息和引用 Bot 消息。已唤醒的消息属于勾选类型时，可开启防抖监听窗口；按命令、艾特 Bot、引用 Bot、普通消息的优先级归类。此选项只决定哪些消息能开启窗口，窗口内的后续消息仍按原规则合并。留空时不开启窗口。",
                 "type": "list",
-                "default": []
-            },
-            "block_users": {
-                "description": "屏蔽唤醒用户",
-                "hint": "在此列表中的用户 ID 发送的消息将直接阻止唤醒",
-                "type": "list",
-                "default": []
+                "options": [
+                    "normal(普通消息)",
+                    "at(艾特Bot消息)",
+                    "reply(引用Bot消息)",
+                    "command(命令消息)"
+                ],
+                "default": [
+                    "normal(普通消息)",
+                    "at(艾特Bot消息)",
+                    "reply(引用Bot消息)"
+                ]
             }
         }
     },
     "mention": {
         "description": "【提及唤醒】",
-        "hint": "处理艾特、引用、通用唤醒词和专属唤醒词。专属唤醒词仅对 AstrBot 管理员生效",
+        "hint": "第四步，处理艾特、引用和唤醒词；命中后标记唤醒并继续后续步骤，唤醒延长和 JEV 跳过已唤醒消息",
         "type": "object",
         "items": {
             "names": {
@@ -209,34 +253,69 @@
             },
             "disable_reply_other_wake": {
                 "description": "引用别人时不唤醒",
-                "hint": "当消息中引用了别人的消息,且没有引用、艾特或提及 bot， bot将不会被唤醒",
+                "hint": "群聊中引用别人且没有引用或艾特 bot 时，直接阻止后续唤醒词、智能唤醒和 JEV 判定",
                 "type": "bool",
-                "default": true
+                "default": false
             },
             "disable_at_other_wake": {
                 "description": "艾特别人时不唤醒",
-                "hint": "当消息中艾特了别人,且没有引用、艾特或提及 bot， bot将不会被唤醒",
+                "hint": "群聊中艾特别人且没有引用或艾特 bot 时，直接阻止后续唤醒词、智能唤醒和 JEV 判定",
                 "type": "bool",
-                "default": true
+                "default": false
             }
         }
     },
-    "wake": {
-        "description": "【智能唤醒】",
-        "hint": "注意: 此步骤仅对触发LLM的消息生效",
+    "prolong": {
+        "description": "【唤醒延长】",
+        "hint": "第五步，由选中的明确唤醒方式激活延长资格，在时长和次数限制内延续对话",
         "type": "object",
         "items": {
-            "prolong": {
-                "description": "唤醒延长（秒）",
-                "hint": "bot被唤醒后的多长时间内，持续保持唤醒状态(每个用户单独计时)。 设为 0 时关闭检测",
+            "activation": {
+                "description": "激活方式",
+                "hint": "可多选，默认全选。选中的方式可激活或重置延长资格及次数，其回复会刷新延长窗口。其他方式（包括智能唤醒和 JEV）不会激活或刷新；唤醒词包含通用和管理员专属唤醒词。留空时不激活延长。",
+                "type": "list",
+                "options": [
+                    "prefix(前缀唤醒)",
+                    "at(艾特唤醒)",
+                    "reply(引用唤醒)",
+                    "keyword(唤醒词唤醒)"
+                ],
+                "default": [
+                    "prefix(前缀唤醒)",
+                    "at(艾特唤醒)",
+                    "reply(引用唤醒)",
+                    "keyword(唤醒词唤醒)"
+                ]
+            },
+            "seconds": {
+                "description": "唤醒延长秒数",
+                "hint": "激活方式或延长唤醒产生的回复会重新计时；其他回复不会续窗。每个群聊中的用户独立计时，设为 0 时关闭延长。",
                 "type": "float",
+                "slider": {
+                    "min": 0,
+                    "max": 60,
+                    "step": 1
+                },
+                "default": 10
+            },
+            "max_count": {
+                "description": "最大延长次数",
+                "hint": "一轮连续对话最多通过延长唤醒几次，初次激活不计入；延长回复刷新时间但不重置次数，重新命中激活方式才重置次数。防抖合并的消息算一次，达到上限后仍可继续其他唤醒判断。设为 0 表示不限。",
+                "type": "int",
                 "slider": {
                     "min": 0,
                     "max": 20,
                     "step": 1
                 },
-                "default": 8.0
-            },
+                "default": 8
+            }
+        }
+    },
+    "wake": {
+        "description": "【智能唤醒】",
+        "hint": "第六步，先检查已有沉默状态，延长已命中时跳过其余判断，否则依次尝试相关性、答疑、无聊、兴趣和概率唤醒",
+        "type": "object",
+        "items": {
             "similar": {
                 "description": "相关性唤醒阈值",
                 "hint": "当前消息与上文bot的消息相关性大时，唤醒bot。 降低阈值可更容易唤醒，保持对话连续性。 设为 1 时关闭检测",
@@ -261,7 +340,7 @@
             },
             "bored": {
                 "description": "无聊唤醒阈值",
-                "hint": "当群里有人感到无聊或长时间无人发言时，唤醒bot。无聊检测设小点可更敏感，活跃群聊氛围。 设为 1 时关闭检测",
+                "hint": "根据当前消息中的无聊信号判断是否唤醒，不检测群聊空闲时长。阈值越低越敏感，设为 1 时关闭检测",
                 "type": "float",
                 "slider": {
                     "min": 0,
@@ -292,7 +371,7 @@
             },
             "prob": {
                 "description": "兜底唤醒概率",
-                "hint": "上述所有唤醒机制都没能唤醒bot时，最后会按照此概率尝试唤醒bot(相当于Astrbot框架中的主动唤醒概率)，概率越大越容易唤醒，建议设置得非常小。 设为 0 时关闭检测",
+                "hint": "本步骤前面的唤醒信号均未命中时，按此概率尝试唤醒；未命中仍可进入后续 JEV 判定。概率越大越容易唤醒，设为 0 时关闭检测",
                 "type": "float",
                 "slider": {
                     "min": 0,
@@ -303,54 +382,78 @@
             }
         }
     },
-    "debounce": {
-        "description": "【消息防抖】",
-        "hint": "消息防抖分为两段：智能唤醒成功后开启监听窗口；后续消息再次进入流水线时，会在这里优先尝试合并到上一条尚未输出的请求中。",
+    "jev": {
+        "description": "【JEV唤醒】",
+        "hint": "第七步，仅对尚未唤醒的普通群聊消息结合上下文判定；跳过指令和防抖续发消息",
         "type": "object",
         "items": {
-            "listen_seconds": {
-                "description": "后续监听时长（秒）",
-                "hint": "智能唤醒成功后，会为该用户开启这么长时间的监听窗口。窗口内命中防抖类型的连续消息会被合并后再请求 LLM。设为 0 时关闭此功能。",
+            "jev_api_key": {
+                "description": "JEV API Key",
+                "hint": "留空时跳过 JEV 判定。",
+                "type": "string",
+                "default": ""
+            },
+            "jev_api_url": {
+                "description": "JEV 请求地址",
+                "hint": "填写完整的 HTTP(S) 接口地址，不会自动追加路径；默认使用 TypeSafe AI 官方接口。",
+                "type": "string",
+                "default": "https://api.typesafe.ai/v1/systemone"
+            },
+            "jev_model": {
+                "description": "JEV 模型版本",
+                "hint": "填写固定版本号，例如 jev-1.13.0；jev-latest",
+                "type": "string",
+                "default": "jev-latest"
+            },
+            "jev_threshold": {
+                "description": "JEV 唤醒阈值",
+                "hint": "JEV 返回概率达到此值时才唤醒，范围为 0 到 1；值越高越保守。",
                 "type": "float",
                 "slider": {
                     "min": 0,
-                    "max": 10,
-                    "step": 0.1
+                    "max": 1,
+                    "step": 0.01
                 },
-                "default": 3.0
+                "default": 0.7
             },
-            "max_merge_count": {
-                "description": "最多合并消息数",
-                "hint": "同一轮防抖最多合并几条消息。设为 0 表示不限制；达到上限后，这一轮会立即发起请求，不再继续监听后续消息。",
+            "jev_timeout_seconds": {
+                "description": "JEV 请求超时（秒）",
+                "hint": "单次请求等待时间上限，超时后按重试次数处理。",
+                "type": "float",
+                "slider": {
+                    "min": 1,
+                    "max": 60,
+                    "step": 1
+                },
+                "default": 10
+            },
+            "jev_retries": {
+                "description": "JEV 失败重试次数",
+                "hint": "请求失败后的额外尝试次数，设为 0 表示不重试。",
                 "type": "int",
                 "slider": {
                     "min": 0,
-                    "max": 10,
+                    "max": 3,
                     "step": 1
                 },
-                "default": 3
+                "default": 0
             },
-            "message_types": {
-                "description": "参与防抖的消息类型",
-                "hint": "勾选的消息类型会在智能唤醒成功后参与防抖监听。normal: 普通消息, at: at消息, reply: 引用消息, command: 命令消息",
-                "type": "list",
-                "options": [
-                    "normal",
-                    "at",
-                    "reply",
-                    "command"
-                ],
-                "default": [
-                    "normal",
-                    "at",
-                    "reply"
-                ]
+            "history_messages": {
+                "description": "JEV 历史消息条数",
+                "hint": "发送给 JEV 的历史群聊消息数量，不包含当前待判断消息；数量越大越占用请求额度。",
+                "type": "int",
+                "slider": {
+                    "min": 1,
+                    "max": 100,
+                    "step": 1
+                },
+                "default": 10
             }
         }
     },
     "silence": {
         "description": "【沉默检测】",
-        "hint": "是否对白名单/黑名单生效由 pipeline 模块控制",
+        "hint": "第八步，仅对已标记唤醒的消息检测闭嘴、辱骂和人机信号",
         "type": "object",
         "items": {
             "shutup": {
@@ -388,7 +491,7 @@
             },
             "multiple": {
                 "description": "沉默时间倍数",
-                "hint": "触发bot沉默时的阈值（0~1） * 沉默时间倍数 = 沉默时间",
+                "hint": "检测分数超过对应阈值时，沉默时长 = 当前检测分数（0~1） × 沉默时间倍数",
                 "type": "float",
                 "slider": {
                     "min": 100,

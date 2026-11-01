@@ -1,6 +1,6 @@
 import asyncio
 from collections import OrderedDict, deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, TypeVar
 
@@ -44,7 +44,9 @@ class MemberState(BaseModel):
     can_prolong: bool = False
     """是否可以延长唤醒"""
     last_reply: float = 0.0
-    """上次回复时间"""
+    """Last reply time eligible to refresh the wake extension window."""
+    prolong_count: int = 0
+    """Extension wakes consumed since the last configured activation."""
     lock: asyncio.Lock = Field(default_factory=asyncio.Lock)
     """成员锁"""
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -66,6 +68,8 @@ class GroupState(BaseModel):
     """闭嘴到期时间"""
     bot_msgs: deque = Field(default_factory=lambda: deque(maxlen=5))
     """机器人消息缓存队列"""
+    history: deque = Field(default_factory=lambda: deque(maxlen=30))
+    """用于 Jev 语义判定的群聊消息历史"""
     model_config = ConfigDict(arbitrary_types_allowed=True)
     """模型配置"""
 
@@ -73,15 +77,26 @@ class GroupState(BaseModel):
 class StateManager:
     """内存状态管理"""
 
-    _groups: dict[str, GroupState] = {}
+    _groups: dict[tuple[str, str, str], GroupState] = {}
     _pending_requests: dict[str, "PendingWakeRequest"] = {}
     _pending_lock = asyncio.Lock()
 
     @classmethod
-    def get_group(cls, gid: str) -> GroupState:
-        if gid not in cls._groups:
-            cls._groups[gid] = GroupState(gid=gid)
-        return cls._groups[gid]
+    def get_group(cls, gid: str, *, platform_id: str, bot_id: str) -> GroupState:
+        """Return isolated state for one platform, bot account, and group.
+
+        Args:
+            gid: Platform-specific group ID.
+            platform_id: AstrBot platform instance ID.
+            bot_id: Bot account ID on the platform.
+
+        Returns:
+            The in-memory state for this isolated group scope.
+        """
+        state_key = (platform_id, bot_id, gid)
+        if state_key not in cls._groups:
+            cls._groups[state_key] = GroupState(gid=gid)
+        return cls._groups[state_key]
 
     @staticmethod
     def get_pending_key(umo: str, uid: str) -> str:
@@ -174,7 +189,25 @@ class PendingWakeRequest:
     plain: str
     created_at: float
     merged_count: int = 1
+    prolong_reply: bool = False
     cleanup_task: asyncio.Task[None] | None = None
+
+
+class WakeType(str, Enum):
+    """Identify the source of a wake independently of pipeline steps."""
+
+    PREFIX = "prefix"
+    AT = "at"
+    REPLY = "reply"
+    KEYWORD = "keyword"
+    SIMILAR = "similar"
+    ASK = "ask"
+    BORED = "bored"
+    INTEREST = "interest"
+    PROB = "prob"
+    JEV = "jev"
+    PROLONG = "prolong"
+    DEBOUNCE = "debounce"
 
 
 @dataclass
@@ -209,6 +242,8 @@ class WakeContext:
     """是否命中了消息防抖窗口"""
     debounce_merged_count: int = 1
     """当前防抖窗口已合并的消息数量"""
+    wake_types: set[WakeType] = field(default_factory=set)
+    """Wake sources detected while processing this message."""
 
 
 class StepName(str, Enum):
@@ -216,8 +251,10 @@ class StepName(str, Enum):
     COMMAND = "command"
     DEBOUNCE = "debounce"
     MENTION = "mention"
+    PROLONG = "prolong"
     SILENCE = "silence"
     WAKE = "wake"
+    JEV = "jev"
 
 
 @dataclass(slots=True)
@@ -230,5 +267,5 @@ class StepResult:
     """附加消息"""
     data: Any | None = None
     """携带的上下文信息"""
-    prolong: bool = False
-    """是否可以延长唤醒"""
+    wake_type: WakeType | None = None
+    """Source of this wake, used to determine extension eligibility."""
