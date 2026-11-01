@@ -61,7 +61,7 @@ class BlockStep(BaseStep):
             return StepResult(
                 wake=False,
                 abort=True,
-                msg=f"User {ctx.uid} is blocked from waking the bot",
+                msg=f"用户 {ctx.uid} 在屏蔽列表中，已阻止唤醒",
             )
         # 过滤QQ机器人
         if (
@@ -69,7 +69,7 @@ class BlockStep(BaseStep):
             and isinstance(ctx.event, AiocqhttpMessageEvent)
             and self._is_qqbot(ctx.uid)
         ):
-            return StepResult(wake=False, abort=True, msg="过滤QQ机器人")
+            return StepResult(wake=False, abort=True, msg="检测到QQ机器人，已阻止唤醒")
         # 复读阻塞
         if self.cfg.reread and ctx.plain and ctx.group:
             cleaned = re.sub(r"[^\w\u4e00-\u9fff]", "", ctx.plain).lower()

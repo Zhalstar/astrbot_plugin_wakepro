@@ -16,6 +16,7 @@ from .core.model import (
     WakeContext,
 )
 from .core.pipeline import Pipeline
+from .core.utils import get_ats
 
 
 class WakePlugin(Star):
@@ -144,62 +145,56 @@ class WakePlugin(Star):
         ):
             member.last_reply = time.time()
 
-    @filter.command("屏蔽唤醒")
+    @filter.command("屏蔽用户", alias={"屏蔽唤醒"})
     async def cmd_block_wake(self, event: AstrMessageEvent, target_id: str = ""):
-        """Block wake requests from the specified user.
-
-        Args:
-            event: Incoming command event.
-            target_id: User ID, optionally prefixed with @; a mention takes priority.
-
-        Yields:
-            A message describing the configuration change or usage.
-        """
-        uid = target_id.strip().removeprefix("@").strip()
-        for seg in event.get_messages():
-            if (
-                isinstance(seg, At)
-                and seg.qq
-                and str(seg.qq) not in ("all", str(event.get_self_id()))
-            ):
-                uid = str(seg.qq).strip()
-                break
-        if not uid:
-            yield event.plain_result(
-                "请指定要屏蔽的用户ID或At目标用户，例如：/屏蔽唤醒 123456 或 /屏蔽唤醒 @某人"
+        """屏蔽用户 @用户A @用户B 或QQ号"""
+        uids = get_ats(event)
+        if not uids:
+            blocked_users = self.cfg.block.block_users
+            msg = (
+                "当前屏蔽的用户：\n" + "\n".join(blocked_users)
+                if blocked_users
+                else "当前没有屏蔽任何用户，请用命令“屏蔽用户 @用户”添加"
             )
+            yield event.plain_result(msg)
             return
-        if self.cfg.add_block_user(uid):
-            yield event.plain_result(f"已将用户 {uid} 加入屏蔽唤醒列表")
-        else:
-            yield event.plain_result(f"用户 {uid} 已在屏蔽唤醒列表中")
+        results = []
+        for uid in uids:
+            if self.cfg.add_block_user(uid):
+                results.append(f"已屏蔽用户：{uid}")
+            else:
+                results.append(f"用户屏蔽中：{uid}")
+        yield event.plain_result("\n".join(results))
 
-    @filter.command("允许唤醒")
+    @filter.command("解除屏蔽")
     async def cmd_allow_wake(self, event: AstrMessageEvent, target_id: str = ""):
-        """Restore wake requests from the specified user.
-
-        Args:
-            event: Incoming command event.
-            target_id: User ID, optionally prefixed with @; a mention takes priority.
-
-        Yields:
-            A message describing the configuration change or usage.
-        """
+        """解除屏蔽 @用户A @用户B 或QQ号"""
+        uids = list(
+            dict.fromkeys(
+                str(seg.qq).strip()
+                for seg in event.get_messages()
+                if (
+                    isinstance(seg, At)
+                    and seg.qq
+                    and str(seg.qq).strip() not in ("", "all", str(event.get_self_id()))
+                )
+            )
+        )
         uid = target_id.strip().removeprefix("@").strip()
-        for seg in event.get_messages():
-            if (
-                isinstance(seg, At)
-                and seg.qq
-                and str(seg.qq) not in ("all", str(event.get_self_id()))
-            ):
-                uid = str(seg.qq).strip()
-                break
-        if not uid:
+        if not uids and uid and uid not in ("all", str(event.get_self_id())):
+            uids.append(uid)
+        if not uids:
+            blocked_users = self.cfg.block.block_users
             yield event.plain_result(
-                "请指定要允许的用户ID或At目标用户，例如：/允许唤醒 123456 或 /允许唤醒 @某人"
+                "当前可解除屏蔽的用户：\n" + "\n".join(blocked_users)
+                if blocked_users
+                else "当前没有屏蔽任何用户"
             )
             return
-        if self.cfg.remove_block_user(uid):
-            yield event.plain_result(f"已将用户 {uid} 从屏蔽唤醒列表中移除")
-        else:
-            yield event.plain_result(f"用户 {uid} 不在屏蔽唤醒列表中")
+        results = []
+        for uid in uids:
+            if self.cfg.remove_block_user(uid):
+                results.append(f"已将用户 {uid} 从屏蔽唤醒列表中移除")
+            else:
+                results.append(f"用户 {uid} 不在屏蔽唤醒列表中")
+        yield event.plain_result("\n".join(results))
