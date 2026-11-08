@@ -33,7 +33,8 @@
                 "description": "白名单",
                 "hint": "支持直接填写会话ID、群聊ID、用户ID(如果冲突，请填写完整会话ID)。AstrBot 管理员会自动加入这里",
                 "type": "list",
-                "default": []
+                "default": [],
+                "_special": "umo"
             },
             "whitelist_steps": {
                 "description": "白名单作用的步骤",
@@ -59,7 +60,8 @@
                 "description": "黑名单",
                 "hint": "支持直接填写会话ID、群聊ID、用户ID(如果冲突，请填写完整会话ID)",
                 "type": "list",
-                "default": []
+                "default": [],
+                "_special": "umo"
             },
             "blacklist_steps": {
                 "description": "黑名单作用的步骤",
@@ -104,7 +106,8 @@
                 "description": "屏蔽用户",
                 "hint": "在此列表中的用户 ID 将被阻塞判断步骤拦截；可通过命令（屏蔽用户、解除屏蔽）修改。",
                 "type": "list",
-                "default": []
+                "default": [],
+                "_special": "sender_id"
             },
             "block_qqbot": {
                 "description": "屏蔽QQ机器人",
@@ -391,7 +394,8 @@
                 "description": "JEV API Key",
                 "hint": "留空时跳过 JEV 判定。",
                 "type": "string",
-                "default": ""
+                "default": "",
+                "secret": true
             },
             "jev_api_url": {
                 "description": "JEV 请求地址",
