@@ -4,5 +4,5 @@ desc: AstrBot唤醒流水线：阻塞判断 → 指令屏蔽 → 消息防抖 �
 help: 略
 version: v2.3.1
 astrbot_version: ">=4.18.2"
-author: Zhalstar
+author: 饰乐
 repo: https://github.com/Zhalstar/astrbot_plugin_wakepro

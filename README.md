@@ -6,10 +6,9 @@
 
 _✨ 唤醒增强插件 ✨_
 
-[![License](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0.html)
+[![License](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0.html)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![AstrBot](https://img.shields.io/badge/AstrBot-4.18.2%2B-orange.svg)](https://github.com/Soulter/AstrBot)
-[![GitHub](https://img.shields.io/badge/作者-Zhalstar-blue)](https://github.com/Zhalstar)
 
 </div>
 
@@ -56,6 +55,7 @@ WakePro 是 AstrBot 的高阶唤醒插件，把「能否唤醒」拆成一套固
 - 支持配置屏蔽唤醒的用户 ID，也可通过命令修改并自动保存。
 - 用`屏蔽用户 @某人|ID` 将指定用户加入屏蔽唤醒列表。`解除屏蔽 @某人|ID` 将指定用户从屏蔽唤醒列表移除。不带参数时进行查看屏蔽列表。
 - 两个指令都支持一次艾特多个用户，自动去重并忽略 Bot 自身和全体成员，逐个处理后汇总结果；有有效艾特时优先使用全部艾特目标，否则使用手动输入的单个用户 ID。
+- 注册 LLM 工具 `llm_set_wake_block`，AI 可自主屏蔽或解除屏蔽某位用户：`user_id` 为真实用户 ID，`blocked=true` 表示屏蔽，`blocked=false` 表示解除屏蔽。工具与命令共用插件级屏蔽列表并自动保存，不仅对当前群生效；不允许操作全体成员或 Bot 自身。工具说明和参数描述均为中文，权限沿用现有命令，不额外限制为管理员。
 - 用户屏蔽遵循 `block` 步骤的启用状态和管道黑白名单跳过规则；命中屏蔽规则的消息不会进入防抖，也不会合并或停止上一条待回复消息。命令权限沿用来源分支，未限制为管理员。
 
 ### 指令屏蔽（command）
