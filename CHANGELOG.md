@@ -1,5 +1,9 @@
 # 更新日志
 
+## v2.3.2
+
+- 仓库迁移到 https://github.com/Zhalstar 账号下
+
 ## v2.3.1
 
 - 新增 LLM 工具 llm_set_wake_block，支持 AI 按用户 ID 自主屏蔽或解除屏蔽唤醒，共用现有屏蔽列表并自动保存。
